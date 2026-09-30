@@ -1,0 +1,7 @@
+fastapi[standard]>=0.115.0
+sqlalchemy>=2.0.0
+docxtpl==0.18.0
+python-multipart
+pillow
+docx2pdf
+httpx

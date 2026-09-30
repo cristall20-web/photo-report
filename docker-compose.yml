@@ -1,0 +1,12 @@
+services:
+  photo-report:
+    build: .
+    container_name: photo-report-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./reports:/app/reports
+      - ./photo_report.db:/app/photo_report.db
+      - ./app/templates:/app/app/templates
+    restart: unless-stopped

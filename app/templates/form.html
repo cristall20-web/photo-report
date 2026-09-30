@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Фотоотчёт</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 16px; }
+  h1 { color: #1a5f9e; text-align: center; font-size: 28px; letter-spacing: 2px; }
+
+  .header-fields label { display: block; margin-top: 12px; font-weight: bold; }
+  .header-fields input, .header-fields select {
+    width: 100%; padding: 8px; margin-top: 4px;
+    box-sizing: border-box; font-size: 14px;
+  }
+
+  .block {
+    border: 1px solid #ccc; padding: 12px; margin-bottom: 12px;
+    border-radius: 6px; background: #fafafa;
+  }
+  .block label { display: block; margin-top: 8px; font-weight: bold; font-size: 13px; }
+  .block input, .block select {
+    width: 100%; padding: 6px; margin-top: 4px;
+    box-sizing: border-box; font-size: 14px;
+  }
+
+  .textarea-wrap {
+    position: relative;
+    margin-top: 4px;
+    width: 100%;
+  }
+  .textarea-wrap textarea,
+  .textarea-wrap .highlight-layer {
+    width: 100%;
+    min-height: 80px;
+    padding: 6px;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  .textarea-wrap textarea {
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    color: #000;
+    resize: vertical;
+    border: 1px solid #ccc;
+  }
+  .textarea-wrap textarea.has-spell-errors {
+    border: 2px solid #e74c3c;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15);
+  }
+  .textarea-wrap .highlight-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    color: transparent;
+    background: transparent;
+    pointer-events: none;
+    border-color: transparent;
+    border-width: 2px;
+    overflow: hidden;
+  }
+  .textarea-wrap .highlight-layer .spell-error-word {
+    text-decoration: underline wavy #e74c3c;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    background-color: rgba(231, 76, 60, 0.12);
+    border-radius: 2px;
+    color: transparent;
+  }
+
+  .spell-errors-box {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #fdecea;
+    border-left: 4px solid #e74c3c;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #721c24;
+    display: none;
+  }
+  .spell-errors-box.visible { display: block; }
+  .spell-errors-box .error-word {
+    font-weight: bold;
+    background: #e74c3c;
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin: 0 2px;
+    display: inline-block;
+  }
+  .spell-errors-box .suggestion {
+    color: #155724;
+    font-weight: bold;
+    background: #d4edda;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin: 0 2px;
+    display: inline-block;
+  }
+  .spell-errors-box .fix-btn {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 6px 14px;
+    background: #27ae60;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .spell-errors-box .fix-btn:hover { background: #219150; }
+
+  .spell-errors-box .ignore-item {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: #95a5a6;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .spell-errors-box .ignore-item:hover { background: #7f8c8d; }
+
+  .spell-status {
+    font-size: 13px;
+    margin-top: 6px;
+    min-height: 18px;
+  }
+  .spell-status.ok { color: #27ae60; }
+  .spell-status.warn { color: #e67e22; }
+  .spell-status.error { color: #e74c3c; }
+
+  button { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 4px; }
+  .btn-add { background: #4CAF50; color: white; }
+  .btn-del { background: #e74c3c; color: white; padding: 6px 12px; font-size: 13px; }
+  .btn-clear { background: #757575; color: white; margin-left: 8px; }
+  .btn-submit { background: #1a5f9e; color: white; margin-top: 16px; margin-right: 8px; }
+  .btn-pdf { background: #c0392b; color: white; margin-top: 16px; }
+  .btn-submit:disabled, .btn-pdf:disabled { background: #999; cursor: not-allowed; }
+
+  img.preview { max-height: 100px; margin-top: 6px; border-radius: 4px; }
+
+  .status { padding: 10px; margin-top: 12px; border-radius: 4px; display: none; }
+  .status.success { background: #d4edda; color: #155724; display: block; }
+  .status.error { background: #f8d7da; color: #721c24; display: block; }
+</style>
+</head>
+<body>
+
+<h1>ФОТООТЧЁТ</h1>
+
+<form id="reportForm" onsubmit="return submitForm(event)">
+
+  <div class="header-fields">
+    <label>Название отчёта:</label>
+    <select id="title_select" onchange="toggleCustom('title'); saveDraft();">
+      <option value="Фотоотчет по общестроительным работам">Фотоотчет по общестроительным работам</option>
+      <option value="Фотоотчет по механическим системам">Фотоотчет по механическим системам</option>
+      <option value="Фотоотчет по электрическим системам">Фотоотчет по электрическим системам</option>
+      <option value="Фотоотчет по слаботочным системам">Фотоотчет по слаботочным системам</option>
+      <option value="__custom__">— Свой вариант —</option>
+    </select>
+    <input type="text" id="title_custom" placeholder="Введите своё название" style="display:none;">
+
+    <label>Дата отчёта:</label>
+    <input name="report_date" type="date" required>
+  </div>
+
+  <h3>Блоки работ</h3>
+  <div id="blocks"></div>
+
+  <button type="button" class="btn-add" onclick="addBlock()">+ Добавить блок</button>
+  <button type="button" class="btn-clear" onclick="clearForm()">🗑 Очистить форму</button>
+  <br>
+  <button type="submit" class="btn-submit" id="submitBtn">📄 Скачать Word</button>
+  <button type="button" class="btn-pdf" id="pdfBtn" onclick="submitFormPDF(event)">📕 Скачать PDF</button>
+
+  <div id="status" class="status"></div>
+</form>
+
+<script>
+const OBJECTS = ["16 тонн", "MMRB", "АБК", "АБК М7", "Антидроновая защита", "Бытовой городок",
+                 "Водомерный узел", "ДГУ", "КК", "М7", "М7.1", "М7.2", "М7.3",
+                 "Наружные сети", "ЭЦ-2"];
+
+const EXECUTORS = ["Армо-Лайн", "ВЕЛИЙ", "ГК ПРОЭМР (МСМ Регион)", "ИджЭнерго",
+                   "Инжком", "КМТ", "ЛС Полимер", "МК РУС ИНДАСТРИС", "МСМ Регион",
+                   "ПМ Стандарт", "СК МИР", "ТИЕКТА", "ТЭЛМАС"];
+
+let blockIndex = 0;
+let formHasErrors = false;
+
+/* ===== Игнорируемые слова ===== */
+const ignoredWords = new Set();
+
+(function loadIgnored() {
+  try {
+    const raw = localStorage.getItem('ignoredWords');
+    if (raw) JSON.parse(raw).forEach(w => ignoredWords.add(w.toLowerCase()));
+  } catch (e) { /* ignore */ }
+})();
+
+function saveIgnored() {
+  try {
+    localStorage.setItem('ignoredWords', JSON.stringify([...ignoredWords]));
+  } catch (e) { /* ignore */ }
+}
+
+/* ===== Утилиты ===== */
+function makeOptions(arr) {
+  return arr.map(v => `<option value="${v}">${v}</option>`).join("");
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function showStatus(msg, type) {
+  const s = document.getElementById('status');
+  s.textContent = msg;
+  s.className = 'status ' + type;
+}
+
+/* ===== Блоки ===== */
+function addBlock() {
+  const i = blockIndex++;
+  const div = document.createElement('div');
+  div.className = 'block';
+  div.innerHTML = `
+    <label>Объект:</label>
+    <select name="object_names" required>
+      ${makeOptions(OBJECTS)}
+      <option value="__custom__">— Свой вариант —</option>
+    </select>
+    <input type="text" class="custom-object" placeholder="Свой объект" style="display:none;">
+
+    <label>Исполнитель:</label>
+    <select name="executors" required>
+      ${makeOptions(EXECUTORS)}
+      <option value="__custom__">— Свой вариант —</option>
+    </select>
+    <input type="text" class="custom-executor" placeholder="Свой исполнитель" style="display:none;">
+
+    <label>Описание работ:</label>
+    <div class="textarea-wrap">
+      <textarea name="descriptions" placeholder="Описание работ" required
+          data-block-index="${i}"
+          oninput="onDescInput(this)"></textarea>
+      <div class="highlight-layer" id="highlight_${i}"></div>
+    </div>
+    <div class="spell-errors-box" id="spell_errors_${i}"></div>
+    <div class="spell-status" id="spell_status_${i}"></div>
+
+    <label>Фото:</label>
+    <input type="file" accept="image/*" onchange="uploadPhoto(this, ${i})">
+    <input type="hidden" name="photo_paths" id="photo_path_${i}">
+    <img class="preview" id="preview_${i}" style="display:none">
+    <br>
+    <button type="button" class="btn-del" onclick="removeBlock(this)">Удалить</button>
+  `;
+  document.getElementById('blocks').appendChild(div);
+
+  const objectSelect = div.querySelector('select[name="object_names"]');
+  const objectCustom = div.querySelector('.custom-object');
+  objectSelect.addEventListener('change', () => {
+    if (objectSelect.value === '__custom__') {
+      objectCustom.style.display = 'block';
+      objectCustom.required = true;
+    } else {
+      objectCustom.style.display = 'none';
+      objectCustom.required = false;
+      objectCustom.value = '';
+    }
+  });
+
+  const execSelect = div.querySelector('select[name="executors"]');
+  const execCustom = div.querySelector('.custom-executor');
+  execSelect.addEventListener('change', () => {
+    if (execSelect.value === '__custom__') {
+      execCustom.style.display = 'block';
+      execCustom.required = true;
+    } else {
+      execCustom.style.display = 'none';
+      execCustom.required = false;
+      execCustom.value = '';
+    }
+  });
+}
+
+function removeBlock(btn) {
+  btn.closest('.block').remove();
+  updateFormLock();
+  saveDraft();
+}
+
+function toggleCustom(prefix) {
+  const sel = document.getElementById(prefix + '_select');
+  const inp = document.getElementById(prefix + '_custom');
+  if (sel.value === '__custom__') {
+    inp.style.display = 'block';
+    inp.required = true;
+  } else {
+    inp.style.display = 'none';
+    inp.required = false;
+    inp.value = '';
+  }
+}
+
+async function uploadPhoto(input, i) {
+  if (!input.files[0]) return;
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  const r = await fetch('/upload-photo', { method: 'POST', body: fd });
+  const data = await r.json();
+  if (data.path) {
+    document.getElementById(`photo_path_${i}`).value = data.path;
+    const img = document.getElementById(`preview_${i}`);
+    img.src = data.url;
+    img.style.display = 'block';
+    saveDraft();
+  } else {
+    alert('Ошибка загрузки: ' + (data.error || 'неизвестно'));
+  }
+}
+
+function getFinalValue(selectEl, customEl) {
+  if (selectEl.value === '__custom__') {
+    return customEl.value.trim();
+  }
+  return selectEl.value;
+}
+
+function clearForm() {
+  if (!confirm('Очистить все блоки и поля формы?')) return;
+
+  document.getElementById('title_select').value = 'Фотоотчет по общестроительным работам';
+  document.getElementById('title_custom').value = '';
+  document.getElementById('title_custom').style.display = 'none';
+  document.querySelector('input[name="report_date"]').value = '';
+
+  document.getElementById('blocks').innerHTML = '';
+  blockIndex = 0;
+  addBlock();
+
+  formHasErrors = false;
+  updateFormLock();
+  localStorage.removeItem('photoReportDraft');
+  showStatus('Форма очищена', 'success');
+  setTimeout(() => { document.getElementById('status').className = 'status'; }, 2000);
+}
+
+/* ===== Блокировка кнопок ===== */
+function updateFormLock() {
+  const submitBtn = document.getElementById('submitBtn');
+  const pdfBtn = document.getElementById('pdfBtn');
+
+  if (formHasErrors) {
+    submitBtn.disabled = true;
+    pdfBtn.disabled = true;
+    submitBtn.title = 'Исправьте ошибки в описании работ';
+    pdfBtn.title = 'Исправьте ошибки в описании работ';
+  } else {
+    submitBtn.disabled = false;
+    pdfBtn.disabled = false;
+    submitBtn.title = '';
+    pdfBtn.title = '';
+  }
+}
+
+/* ===== Звук ===== */
+function playErrorSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 440;
+    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.15);
+  } catch (e) { console.warn('Звук не воспроизведён:', e); }
+}
+
+/* ===== Подсветка ===== */
+function buildHighlightedHTML(text, matches) {
+  if (!matches || matches.length === 0) return escapeHtml(text);
+
+  const sorted = [...matches].sort((a, b) => a.offset - b.offset);
+
+  let result = '';
+  let cursor = 0;
+  for (const m of sorted) {
+    if (m.offset < cursor) continue;
+    result += escapeHtml(text.substring(cursor, m.offset));
+    const word = text.substring(m.offset, m.offset + m.length);
+    result += `<span class="spell-error-word">${escapeHtml(word)}</span>`;
+    cursor = m.offset + m.length;
+  }
+  result += escapeHtml(text.substring(cursor));
+  return result;
+}
+
+/* ===== Проверка орфографии ===== */
+async function checkSpelling(text, statusEl, textarea, errorsBoxEl, highlightEl, bIdx) {
+  if (!text || text.trim().length < 3) {
+    statusEl.textContent = '';
+    errorsBoxEl.classList.remove('visible');
+    textarea.classList.remove('has-spell-errors');
+    highlightEl.innerHTML = '';
+    textarea._lastMatches = [];
+    recalcFormErrors();
+    return;
+  }
+
+  statusEl.textContent = 'Проверка орфографии...';
+  statusEl.className = 'spell-status warn';
+
+  try {
+    const response = await fetch('/spell-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text, language: 'ru-RU' }),
+    });
+
+    if (!response.ok) {
+      statusEl.textContent = '⚠ Проверка недоступна';
+      statusEl.className = 'spell-status warn';
+      return;
+    }
+
+    const data = await response.json();
+    let matches = data.matches || [];
+
+    matches = matches.filter(m => {
+      const word = text.substring(m.offset, m.offset + m.length);
+      return !ignoredWords.has(word.toLowerCase());
+    });
+
+    textarea._lastMatches = matches;
+
+    highlightEl.innerHTML = buildHighlightedHTML(text, matches);
+
+    if (matches.length === 0) {
+      statusEl.textContent = '✅ Орфография в порядке';
+      statusEl.className = 'spell-status ok';
+      textarea.classList.remove('has-spell-errors');
+      errorsBoxEl.classList.remove('visible');
+      recalcFormErrors();
+      return;
+    }
+
+    textarea.classList.add('has-spell-errors');
+    statusEl.textContent = '';
+    statusEl.className = 'spell-status error';
+
+    const lines = matches.slice(0, 5).map(m => {
+      const word = text.substring(m.offset, m.offset + m.length);
+
+      let suggestion = '—';
+      if (m.replacements && m.replacements.length > 0) {
+        const first = m.replacements[0];
+        suggestion = (typeof first === 'string') ? first : first.value;
+      }
+
+      const message = m.message || '';
+      const wordEscaped = escapeHtml(word);
+
+      return `<div style="margin: 6px 0; padding: 4px 0; border-bottom: 1px dashed rgba(231,76,60,0.2);">
+        <span class="error-word">${wordEscaped}</span>
+        → <span class="suggestion">${escapeHtml(suggestion) || '<i style="color:#999;">убрать</i>'}</span>
+        <span style="color:#666; font-size:12px;"> (${escapeHtml(message)})</span>
+        <button type="button" class="ignore-item"
+            onclick="ignoreWord('${wordEscaped.replace(/'/g, "\\'")}', ${bIdx})">
+          Оставить как есть
+        </button>
+      </div>`;
+    }).join('');
+
+    const more = matches.length > 5
+        ? `<div style="color:#666; font-size:12px; margin-top:4px;">…и ещё ${matches.length - 5} ошибок</div>`
+        : '';
+
+    errorsBoxEl.innerHTML = `
+      <b>Найдены ошибки (${matches.length}):</b>${lines}${more}
+      <div style="margin-top: 10px;">
+        <button type="button" class="fix-btn" onclick="fixAllErrors(${bIdx})">
+          ✨ Исправить все ошибки
+        </button>
+      </div>
+    `;
+    errorsBoxEl.classList.add('visible');
+
+    playErrorSound();
+    recalcFormErrors();
+  } catch (e) {
+    statusEl.textContent = '⚠ Ошибка проверки';
+    statusEl.className = 'spell-status warn';
+  }
+}
+
+/* ===== Игнор ===== */
+function ignoreWord(word, bIdx) {
+  ignoredWords.add(word.toLowerCase());
+  saveIgnored();
+
+  const block = document.querySelectorAll('.block')[bIdx];
+  const textarea = block.querySelector('textarea[name="descriptions"]');
+  const statusEl = block.querySelector('.spell-status');
+  const errorsBoxEl = block.querySelector('.spell-errors-box');
+  const highlightEl = block.querySelector('.highlight-layer');
+
+  checkSpelling(textarea.value, statusEl, textarea, errorsBoxEl, highlightEl, bIdx);
+}
+
+/* ===== Применение исправлений ===== */
+function applyReplacements(text, matches) {
+  const sorted = [...matches].sort((a, b) => b.offset - a.offset);
+  let result = text;
+  for (const m of sorted) {
+    if (m.replacements && m.replacements.length > 0) {
+      const first = m.replacements[0];
+      const replacement = (typeof first === 'string') ? first : first.value;
+      result = result.substring(0, m.offset)
+             + replacement
+             + result.substring(m.offset + m.length);
+    }
+  }
+  return result;
+}
+
+async function fixAllErrors(bIdx) {
+  const block = document.querySelectorAll('.block')[bIdx];
+  const textarea = block.querySelector('textarea[name="descriptions"]');
+  const matches = textarea._lastMatches || [];
+  if (matches.length === 0) return;
+
+  const fixable = matches.filter(m =>
+    m.replacements && m.replacements.length > 0
+  );
+
+  const fixed = applyReplacements(textarea.value, fixable);
+  textarea.value = fixed;
+
+  const statusEl = block.querySelector('.spell-status');
+  const errorsBoxEl = block.querySelector('.spell-errors-box');
+  const highlightEl = block.querySelector('.highlight-layer');
+
+  await checkSpelling(fixed, statusEl, textarea, errorsBoxEl, highlightEl, bIdx);
+  saveDraft();
+}
+
+/* ===== Пересчёт статуса ===== */
+function recalcFormErrors() {
+  const anyErrors = Array.from(document.querySelectorAll('.textarea-wrap textarea'))
+      .some(t => t.classList.contains('has-spell-errors'));
+  formHasErrors = anyErrors;
+  updateFormLock();
+}
+
+/* ===== Debounce ввода ===== */
+function onDescInput(textarea) {
+  const block = textarea.closest('.block');
+  const statusEl = block.querySelector('.spell-status');
+  const errorsBoxEl = block.querySelector('.spell-errors-box');
+  const highlightEl = block.querySelector('.highlight-layer');
+  const bIdx = parseInt(textarea.dataset.blockIndex);
+
+  clearTimeout(textarea._spellTimer);
+  textarea._spellTimer = setTimeout(() => {
+    checkSpelling(textarea.value, statusEl, textarea, errorsBoxEl, highlightEl, bIdx);
+  }, 1200);
+
+  saveDraft();
+}
+
+/* ===== Черновик ===== */
+function saveDraft() {
+  try {
+    const draft = {
+      title_select: document.getElementById('title_select').value,
+      title_custom: document.getElementById('title_custom').value,
+      report_date: document.querySelector('input[name="report_date"]').value,
+      blocks: [],
+    };
+    document.querySelectorAll('.block').forEach(block => {
+      draft.blocks.push({
+        object: block.querySelector('select[name="object_names"]').value,
+        object_custom: block.querySelector('.custom-object').value,
+        executor: block.querySelector('select[name="executors"]').value,
+        executor_custom: block.querySelector('.custom-executor').value,
+        description: block.querySelector('textarea[name="descriptions"]').value,
+        photo_path: block.querySelector('input[name="photo_paths"]').value,
+      });
+    });
+    localStorage.setItem('photoReportDraft', JSON.stringify(draft));
+  } catch (e) { console.warn('Не удалось сохранить черновик:', e); }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem('photoReportDraft');
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+
+    document.getElementById('title_select').value =
+        draft.title_select || 'Фотоотчет по общестроительным работам';
+    toggleCustom('title');
+    if (draft.title_custom) {
+      document.getElementById('title_custom').value = draft.title_custom;
+      document.getElementById('title_custom').style.display = 'block';
+    }
+    if (draft.report_date) {
+      document.querySelector('input[name="report_date"]').value = draft.report_date;
+    }
+
+    document.getElementById('blocks').innerHTML = '';
+    blockIndex = 0;
+
+    if (draft.blocks && draft.blocks.length > 0) {
+      draft.blocks.forEach((b, i) => {
+        addBlock();
+        const block = document.querySelectorAll('.block')[i];
+
+        const objSelect = block.querySelector('select[name="object_names"]');
+        objSelect.value = b.object || OBJECTS[0];
+        if (b.object === '__custom__' || b.object_custom) {
+          objSelect.value = '__custom__';
+          objSelect.dispatchEvent(new Event('change'));
+          block.querySelector('.custom-object').value = b.object_custom || '';
+        }
+
+        const execSelect = block.querySelector('select[name="executors"]');
+        execSelect.value = b.executor || EXECUTORS[0];
+        if (b.executor === '__custom__' || b.executor_custom) {
+          execSelect.value = '__custom__';
+          execSelect.dispatchEvent(new Event('change'));
+          block.querySelector('.custom-executor').value = b.executor_custom || '';
+        }
+
+        const ta = block.querySelector('textarea[name="descriptions"]');
+        ta.value = b.description || '';
+        if (ta.value.trim().length >= 3) {
+          const statusEl = block.querySelector('.spell-status');
+          const errorsBoxEl = block.querySelector('.spell-errors-box');
+          const highlightEl = block.querySelector('.highlight-layer');
+          checkSpelling(ta.value, statusEl, ta, errorsBoxEl, highlightEl, i);
+        }
+
+        if (b.photo_path) {
+          block.querySelector('input[name="photo_paths"]').value = b.photo_path;
+          const photoUrl = '/' + b.photo_path.replace(/\\/g, '/');
+          const img = block.querySelector(`#preview_${i}`);
+          img.src = photoUrl;
+          img.style.display = 'block';
+        }
+      });
+    } else {
+      addBlock();
+    }
+    return true;
+  } catch (e) {
+    console.warn('Не удалось загрузить черновик:', e);
+    return false;
+  }
+}
+
+/* ===== Отправка ===== */
+function collectFormData() {
+  const form = document.getElementById('reportForm');
+  const fd = new FormData();
+
+  const titleSelect = document.getElementById('title_select');
+  const titleCustom = document.getElementById('title_custom');
+  const finalTitle = titleSelect.value === '__custom__'
+      ? titleCustom.value.trim()
+      : titleSelect.value;
+  if (!finalTitle) { alert('Укажите название отчёта'); return null; }
+  fd.append('title', finalTitle);
+
+  fd.append('report_date', form.querySelector('input[name="report_date"]').value);
+
+  const blocks = form.querySelectorAll('.block');
+  for (const block of blocks) {
+    const objectSelect = block.querySelector('select[name="object_names"]');
+    const objectCustom = block.querySelector('.custom-object');
+    fd.append('object_names', getFinalValue(objectSelect, objectCustom));
+
+    const execSelect = block.querySelector('select[name="executors"]');
+    const execCustom = block.querySelector('.custom-executor');
+    fd.append('executors', getFinalValue(execSelect, execCustom));
+
+    fd.append('descriptions', block.querySelector('textarea[name="descriptions"]').value);
+    fd.append('photo_paths', block.querySelector('input[name="photo_paths"]').value);
+  }
+  return fd;
+}
+
+async function downloadFile(endpoint, btn, btnText, statusPrefix) {
+  if (formHasErrors) {
+    showStatus('⚠ Сначала исправьте ошибки в описании работ', 'error');
+    return false;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Генерация...';
+  document.getElementById('status').className = 'status';
+
+  try {
+    const fd = collectFormData();
+    if (!fd) return false;
+
+    const r = await fetch(endpoint, { method: 'POST', body: fd });
+    if (!r.ok) {
+      showStatus('Ошибка генерации (код ' + r.status + ')', 'error');
+      return false;
+    }
+
+    const data = await r.json();
+
+    const a = document.createElement('a');
+    a.href = data.download_url;
+    a.download = data.filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    showStatus('✅ ' + statusPrefix + ': ' + data.filename, 'success');
+    localStorage.removeItem('photoReportDraft');
+  } catch (err) {
+    showStatus('Ошибка: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = btnText;
+    updateFormLock();
+  }
+  return false;
+}
+
+async function submitForm(e) {
+  e.preventDefault();
+  return downloadFile('/generate', document.getElementById('submitBtn'), '📄 Скачать Word', 'Готово');
+}
+
+async function submitFormPDF(e) {
+  e.preventDefault();
+  return downloadFile('/generate-pdf', document.getElementById('pdfBtn'), '📕 Скачать PDF', 'PDF готов');
+}
+
+/* ===== Инициализация ===== */
+if (!loadDraft()) {
+  addBlock();
+}
+updateFormLock();
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('reportForm');
+  form.addEventListener('input', saveDraft);
+  form.addEventListener('change', saveDraft);
+});
+</script>
+
+</body>
+</html>

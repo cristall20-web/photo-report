@@ -1,0 +1,17 @@
+# Исключаем лишнее из образа — ускоряет сборку
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.env
+.git/
+.vscode/
+.venv/
+venv/
+tests/
+*.md
+
+# Данные, которые не должны попасть в образ
+photo_report.db
+uploads/
+reports/

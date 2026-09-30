@@ -1,3 +1,4 @@
+# app/main.py
 import os
 import re
 import uuid
@@ -12,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+from app.config import UPLOAD_DIR, REPORTS_DIR
 from app.database import Base, engine, get_db
 from app import models
 from app.report import generate_report, convert_to_pdf
@@ -20,8 +22,6 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Фотоотчёт")
 
-UPLOAD_DIR = "uploads"
-REPORTS_DIR = "reports"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
@@ -182,7 +182,6 @@ async def download_file(encoded_filename: str):
 # ==================== ПРОВЕРКА ОРФОГРАФИИ ====================
 
 def _add_match(matches, offset, length, message, rule_id, replacement):
-    """Хелпер: добавляет match."""
     matches.append({
         "offset": offset,
         "length": length,
@@ -196,33 +195,16 @@ def _custom_rules_check(text: str) -> list:
     """Свои правила: точки, пробелы, знаки препинания."""
     matches = []
 
-    # ======================================================
-    # 1. Мусорные сочетания знаков препинания: ". ,", ", .", ". .", ", ," и т.д.
-    # Ищем любые комбинации из 2+ знаков [.,;:!?] с пробелами и без.
-    # Правило: если рядом стоят два разных знака — оставить только последний (или более логичный).
-    # ======================================================
-
-    # Сначала обрабатываем ". ," / ", ." / ". ." / ", ," / "; ." и т.п.
-    # Комбинация: знак + пробелы + знак
-    # Оставляем точку, если она есть; иначе — запятую; иначе — первый знак.
+    # 1. Мусорные сочетания знаков
     sign_sequence_re = re.compile(r"([.,;:!?])\s*([.,;:!?])")
     for m in sign_sequence_re.finditer(text):
         first_sign = m.group(1)
         second_sign = m.group(2)
-
-        # Если оба знака одинаковые — оставляем один
         if first_sign == second_sign:
-            # ". ." → "." ; ", ," → ","
-            replacement = first_sign
-            _add_match(
-                matches, m.start(), m.end() - m.start(),
-                f"Двойной знак «{first_sign}{second_sign}» — оставьте один",
-                "CUSTOM_DOUBLE_SIGN", replacement,
-            )
+            _add_match(matches, m.start(), m.end() - m.start(),
+                       f"Двойной знак «{first_sign}{second_sign}» — оставьте один",
+                       "CUSTOM_DOUBLE_SIGN", first_sign)
         else:
-            # Разные знаки: ". ," → "," ; ", ." → "." ; "; ." → "." ; ". ;" → ";"
-            # Логика: точка важнее запятой; точка с запятой важнее запятой;
-            # если есть точка — оставляем её; иначе — второй знак.
             if "." in (first_sign, second_sign):
                 replacement = "."
             elif ";" in (first_sign, second_sign):
@@ -235,126 +217,79 @@ def _custom_rules_check(text: str) -> list:
                 replacement = "!"
             else:
                 replacement = second_sign
+            _add_match(matches, m.start(), m.end() - m.start(),
+                       f"Недопустимое сочетание «{first_sign} {second_sign}» — оставьте «{replacement}»",
+                       "CUSTOM_MIXED_SIGNS", replacement)
 
-            _add_match(
-                matches, m.start(), m.end() - m.start(),
-                f"Недопустимое сочетание знаков «{first_sign} {second_sign}» — оставьте «{replacement}»",
-                "CUSTOM_MIXED_SIGNS", replacement,
-            )
-
-    # ======================================================
-    # 2. Две и более точек подряд
-    # ======================================================
+    # 2. Две и более точки подряд
     for m in re.finditer(r"\.{2,}", text):
         start = m.start()
         end = m.end()
         after = text[end:]
         is_at_end = after.strip() == ""
-
         if not is_at_end:
-            _add_match(
-                matches, start, end - start,
-                "Многоточие посреди предложения — замените на пробел",
-                "CUSTOM_DOTS_MIDDLE", " ",
-            )
+            _add_match(matches, start, end - start,
+                       "Многоточие посреди предложения — замените на пробел",
+                       "CUSTOM_DOTS_MIDDLE", " ")
         else:
             if end - start > 1:
-                _add_match(
-                    matches, start, end - start,
-                    "Лишние точки в конце — оставьте одну",
-                    "CUSTOM_DOTS_END", ".",
-                )
+                _add_match(matches, start, end - start,
+                           "Лишние точки в конце — оставьте одну",
+                           "CUSTOM_DOTS_END", ".")
 
-    # ======================================================
-    # 3. Точка/запятая перед открывающей скобкой или внутри "(футляра.трубы"
-    # Точка внутри слова (между буквами) — заменить на пробел.
-    # Например: "футляра.трубы" → "футляра трубы"
-    # ======================================================
+    # 3. Точка внутри слова
     for m in re.finditer(r"([А-Яа-яЁёA-Za-z])\.([А-Яа-яЁёA-Za-z])", text):
-        _add_match(
-            matches, m.start() + 1, 1,
-            "Точка внутри слова — замените на пробел",
-            "CUSTOM_DOT_INSIDE_WORD", " ",
-        )
+        _add_match(matches, m.start() + 1, 1,
+                   "Точка внутри слова — замените на пробел",
+                   "CUSTOM_DOT_INSIDE_WORD", " ")
 
-    # ======================================================
-    # 4. Точка/запятая непосредственно перед закрывающей скобкой или после открывающей
-    # Например: ".)." или "(. "
-    # ======================================================
-    # ". )" → ")" ; ". )" с пробелами → ")"
+    # 4. Знак перед закрывающей скобкой
     for m in re.finditer(r"([.,;:!?])\s*\)", text):
-        _add_match(
-            matches, m.start(), m.end() - m.start(),
-            "Знак препинания перед закрывающей скобкой — уберите",
-            "CUSTOM_PUNCT_BEFORE_PAREN", ")",
-        )
-    # "(." → "("
+        _add_match(matches, m.start(), m.end() - m.start(),
+                   "Знак препинания перед закрывающей скобкой — уберите",
+                   "CUSTOM_PUNCT_BEFORE_PAREN", ")")
+
+    # 5. Знак после открывающей скобки
     for m in re.finditer(r"\(\s*([.,;:!?])", text):
-        _add_match(
-            matches, m.start(), m.end() - m.start(),
-            "Знак препинания после открывающей скобки — уберите",
-            "CUSTOM_PUNCT_AFTER_PAREN", "(",
-        )
+        _add_match(matches, m.start(), m.end() - m.start(),
+                   "Знак препинания после открывающей скобки — уберите",
+                   "CUSTOM_PUNCT_AFTER_PAREN", "(")
 
-    # ======================================================
-    # 5. Пробел перед знаком препинания
-    # ======================================================
+    # 6. Пробел перед знаком
     for m in re.finditer(r"\s+([.,!?;:])", text):
-        _add_match(
-            matches, m.start(), m.end() - m.start(),
-            "Лишний пробел перед знаком препинания",
-            "CUSTOM_SPACE_BEFORE_PUNCT", m.group(1),
-        )
+        _add_match(matches, m.start(), m.end() - m.start(),
+                   "Лишний пробел перед знаком препинания",
+                   "CUSTOM_SPACE_BEFORE_PUNCT", m.group(1))
 
-    # ======================================================
-    # 6. Двойные пробелы
-    # ======================================================
+    # 7. Двойные пробелы
     for m in re.finditer(r"  +", text):
-        _add_match(
-            matches, m.start(), m.end() - m.start(),
-            "Двойной пробел",
-            "CUSTOM_DOUBLE_SPACE", " ",
-        )
+        _add_match(matches, m.start(), m.end() - m.start(),
+                   "Двойной пробел", "CUSTOM_DOUBLE_SPACE", " ")
 
-    # ======================================================
-    # 7. Нет пробела после знака препинания (кроме чисел и точки в числах)
-    # ======================================================
+    # 8. Нет пробела после знака (кроме цифр)
     for m in re.finditer(r"([,;:!?])(?=[^\s\d])", text):
-        # запятая, ;, :, !, ? — без пробела после
-        _add_match(
-            matches, m.start(), 1,
-            "Нет пробела после знака препинания",
-            "CUSTOM_NO_SPACE_AFTER_PUNCT", m.group(1) + " ",
-        )
+        _add_match(matches, m.start(), 1,
+                   "Нет пробела после знака препинания",
+                   "CUSTOM_NO_SPACE_AFTER_PUNCT", m.group(1) + " ")
 
-    # Отдельно для точки: точка + буква → точка + пробел
-    # Но не трогаем числа: 1.5, 12.09.2026
+    # 9. Точка + буква
     for m in re.finditer(r"\.(?=[А-Яа-яЁёA-Za-z])", text):
-        # проверяем, что слева тоже буква (не цифра)
         before = text[max(0, m.start() - 1):m.start()]
         if before and not before.isdigit():
-            _add_match(
-                matches, m.start(), 1,
-                "Нет пробела после точки",
-                "CUSTOM_NO_SPACE_AFTER_DOT", ". ",
-            )
+            _add_match(matches, m.start(), 1,
+                       "Нет пробела после точки",
+                       "CUSTOM_NO_SPACE_AFTER_DOT", ". ")
 
-    # ======================================================
-    # 8. Точка или запятая сразу после открывающей/перед закрывающей кавычкой
-    # ======================================================
-    # ")." → ") "
+    # 10. Знак сразу после закрывающей скобки
     for m in re.finditer(r"\)([.,;:!?])", text):
-        _add_match(
-            matches, m.start() + 1, 1,
-            "Знак препинания сразу после закрывающей скобки — уберите",
-            "CUSTOM_PUNCT_AFTER_PAREN_CLOSE", "",
-        )
+        _add_match(matches, m.start() + 1, 1,
+                   "Знак препинания сразу после скобки — уберите",
+                   "CUSTOM_PUNCT_AFTER_PAREN_CLOSE", "")
 
     return matches
 
 
 def _merge_matches(lt_matches: list, custom_matches: list) -> list:
-    """Объединяет ошибки LanguageTool и наши правила, убирая пересечения."""
     all_matches = list(custom_matches) + list(lt_matches)
     all_matches.sort(key=lambda m: m.get("offset", 0))
 
@@ -371,7 +306,6 @@ def _merge_matches(lt_matches: list, custom_matches: list) -> list:
 
 @app.post("/spell-check")
 async def spell_check(payload: dict):
-    """Прокси к LanguageTool + свои правила."""
     text = payload.get("text", "")
     language = payload.get("language", "ru-RU")
 

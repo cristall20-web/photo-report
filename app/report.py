@@ -7,11 +7,12 @@ from docx.shared import Mm, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ALIGN_VERTICAL
 
+from app.config import REPORTS_DIR
+
 TEMPLATE_PATH = "app/templates/report_template_v3.docx"
-OUTPUT_DIR = "reports"
+OUTPUT_DIR = REPORTS_DIR
 BLOCKS_PER_PAGE = 2
 
-# Соответствие названия отчёта → префикс имени файла
 TITLE_TO_PREFIX = {
     "Фотоотчет по общестроительным работам": "Фотоотчет по ОСР",
     "Фотоотчет по механическим системам": "Фотоотчет по МС",
@@ -19,7 +20,6 @@ TITLE_TO_PREFIX = {
     "Фотоотчет по слаботочным системам": "Фотоотчет по СС",
 }
 
-# Размер фото в зависимости от типа отчёта (в мм, по ширине)
 TITLE_TO_PHOTO_WIDTH = {
     "Фотоотчет по общестроительным работам": Mm(70),
     "Фотоотчет по механическим системам": Mm(115),
@@ -88,7 +88,6 @@ def convert_to_pdf(docx_path: str) -> str:
         from docx2pdf import convert
         convert(docx_path, pdf_path)
     else:
-        # Linux / Docker
         subprocess.run(
             [
                 "libreoffice", "--headless",
@@ -142,21 +141,15 @@ def _fill_block_row(row, item, photo_width):
     while len(left_cell.paragraphs) < 3:
         left_cell.add_paragraph()
 
-    # 1-й — объект (жирный), без отступа
     _set_paragraph(left_cell.paragraphs[0],
                    item.get("object_name", ""),
-                   bold=True,
-                   space_after_pt=0)
-    # 2-й — исполнитель (жирный), отступ 6 пт снизу
+                   bold=True, space_after_pt=0)
     _set_paragraph(left_cell.paragraphs[1],
                    item.get("executor", ""),
-                   bold=True,
-                   space_after_pt=6)
-    # 3-й — описание (обычный)
+                   bold=True, space_after_pt=6)
     _set_paragraph(left_cell.paragraphs[2],
                    item.get("description", ""),
-                   bold=False,
-                   space_after_pt=0)
+                   bold=False, space_after_pt=0)
 
     rp = right_cell.paragraphs[0]
     rp.alignment = WD_ALIGN_PARAGRAPH.CENTER

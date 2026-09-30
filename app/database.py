@@ -1,7 +1,11 @@
+# app/database.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = "sqlite:///./photo_report.db"
+from app.config import DB_PATH
+
+# SQLite: файл photo_report.db лежит в DATA_DIR
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(
     DATABASE_URL,

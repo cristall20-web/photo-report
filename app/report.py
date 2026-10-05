@@ -141,16 +141,20 @@ def _fill_block_row(row, item, photo_width):
     while len(left_cell.paragraphs) < 3:
         left_cell.add_paragraph()
 
+    # 1-й — объект (жирный), отступ 6 пт снизу
     _set_paragraph(left_cell.paragraphs[0],
                    item.get("object_name", ""),
-                   bold=True, space_after_pt=0)
+                   bold=True, space_after_pt=6)
+    # 2-й — исполнитель (жирный), отступ 6 пт снизу
     _set_paragraph(left_cell.paragraphs[1],
                    item.get("executor", ""),
                    bold=True, space_after_pt=6)
+    # 3-й — описание (обычный), без отступа
     _set_paragraph(left_cell.paragraphs[2],
                    item.get("description", ""),
                    bold=False, space_after_pt=0)
 
+    # Правая ячейка — фото (без сжатия, оригинал)
     rp = right_cell.paragraphs[0]
     rp.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for r in list(rp.runs):
@@ -158,5 +162,8 @@ def _fill_block_row(row, item, photo_width):
 
     photo_path = item.get("photo_path")
     if photo_path and os.path.exists(photo_path):
-        run = rp.add_run()
-        run.add_picture(photo_path, width=photo_width)
+        try:
+            run = rp.add_run()
+            run.add_picture(photo_path, width=photo_width)
+        except Exception as e:
+            print(f"Не удалось вставить фото {photo_path}: {e}")
